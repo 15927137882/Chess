@@ -5,7 +5,6 @@
 
 Board::Board(int width_,int height_ ,int n_in_rows_) : width(width_), height(height_), n_in_rows(n_in_rows_),status(width*height)
 {
-
 }
 
 void Board::Initial()
@@ -59,11 +58,11 @@ ostream & operator<<(ostream &os,Board &b)
         switch(b.status[i*b.height])
         {
             case STATUS::EMPTY : os<<"_";
-                                        break;
+                                 break;
             case STATUS::P1    : os<<"X";
-                                        break;
+                                 break;
             case STATUS::P2    : os<<"O";
-                                        break;
+                                 break;
         }
 
         for(int j = 1;j<b.width;j++)
@@ -72,11 +71,11 @@ ostream & operator<<(ostream &os,Board &b)
             switch(b.status[i*b.height + j])
             {
                 case STATUS::EMPTY : os<<"_";
-                                            break;
+                                     break;
                 case STATUS::P1    : os<<"X";
-                                            break;
+                                     break;
                 case STATUS::P2    : os<<"O";
-                                            break;
+                                     break;
             }
         }
         os<<"\n\n\n";

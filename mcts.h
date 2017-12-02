@@ -10,8 +10,8 @@ using namespace std;
 
 enum STATUS {EMPTY,P1,P2};
 
-typedef pair<int,int> location;
-typedef pair<bool,STATUS> result;
+typedef pair<int,int> location;     //位置(x,y)
+typedef pair<bool,STATUS> result;   //下棋结果(胜负关系,赢家)
 
 
 class Board;
@@ -38,15 +38,15 @@ private:
     list<int> total;    //所有点的一维索引
 public:
     Board(int width_ = 8,int height_ = 8,int n_in_rows_ = 5);
-    void Initial();
+    void Initial();     //重置 || 初始化棋盘
     const vector<STATUS> & GetStatus() {return status;} //获得棋盘状态
     unsigned int GetAvailablesNum()  {return availables.size();}    //获得可着子位置的数量
     list<int> GetMoved();   //获得可以着子的地方
-    pair<int,int> Size() {return pair<int,int>(height,width);}
+    pair<int,int> Size() {return pair<int,int>(height,width);}  //获得棋盘大小
     location MoveToLocation(int Move);      //线性地址转化为二维地址
     int LocationToMove(location loc);      //二维地址转化为线性地址
     void Update(Human s,int Move);      //更新相应棋手的着子
-    friend ostream & operator<<(ostream &os,Board &b);
+    friend ostream & operator<<(ostream &os,Board &b);  //显示棋盘当前状态
     friend int Human::GetAction(Board &b);
 };
 
