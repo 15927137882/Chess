@@ -1,6 +1,6 @@
-*.cbp
-*.depend
-*.layout
+*/*.cbp
+*/*.depend
+*/*.layout
 
 */bin/Debug/*.exe
 */obj/Debug/*.o
