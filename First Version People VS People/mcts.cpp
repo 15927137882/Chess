@@ -229,7 +229,7 @@ result Game::GameEnd()
         }
 
         if(temp.second >= 0 && temp.second<board.Size().second - n_in_rows + 1
-           && temp.first >= board.Size().first - n_in_rows + 2 && temp.first<board.Size().first)
+           && temp.first >= board.Size().first - n_in_rows + 1 && temp.first<board.Size().first)
         {
             count = 0;
             for(int i = m;i>m - n_in_rows * (board.Size().second - 1);i-=(board.Size().second-1))
