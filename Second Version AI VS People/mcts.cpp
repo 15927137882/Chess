@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cmath>
 
+/* Board类方法实现 */
 
 Board::Board(int width_,int height_ ,int n_in_rows_) : width(width_), height(height_), n_in_rows(n_in_rows_),status(width*height)
 {
@@ -100,6 +101,16 @@ ostream & operator<<(ostream &os,Board &b)
 }
 
 
+/* Human类方法实现 */
+
+void input_judge(istream &is)
+{
+    if(!is)
+    {
+        cerr<<"Bad Input!\n";
+        exit(0);
+    }
+}
 
 int Human::GetAction(Board &b)
 {
@@ -109,18 +120,14 @@ int Human::GetAction(Board &b)
     if(ID == P2) cout<<"P2:\n";
     cout<<"Your move: ";
     cin>>loc.first;
-    if(!cin)
-    {
-        cerr<<"Bad Input!\n";
-        exit(0);
-    }
+
+    input_judge(cin);
+
     cin.get();
     cin>>loc.second;
-    if(!cin)
-    {
-        cerr<<"Bad Input!\n";
-        exit(0);
-    }
+
+    input_judge(cin);
+
     mov = b.LocationToMove(loc);
     while(loc.first >= b.height || loc.first < 0
        || loc.second >= b.width || loc.second < 0
@@ -133,23 +140,16 @@ int Human::GetAction(Board &b)
         cout<<"Your move: ";
         cin.clear();
         cin>>loc.first;
-        if(!cin)
-        {
-        cerr<<"Bad Input!\n";
-        exit(0);
-        }
+        input_judge(cin);
         cin.get();
         cin>>loc.second;
-        if(!cin)
-        {
-        cerr<<"Bad Input!\n";
-        exit(0);
-        }
+        input_judge(cin);
         mov = b.LocationToMove(loc);
     }
     return mov;
 }
 
+/* Game类方法实现 */
 
 Game::Game(int width_,int height_,int n_in_rows_,double time_,int max_actions_)
         : board(width_,height_,n_in_rows_) , n_in_rows(n_in_rows_) , time(time_),max_actions(max_actions_)
@@ -175,8 +175,8 @@ void Game::InitialPlayer()
     int choice = 0;
     cin>>choice;
     if(choice == 1) Player[1] = new Human(P2);
-    if(choice == 2) Player[1] = new class AI(2,1000,n_in_rows,1.96);
-    shuffle(Player,Player+2, e);
+    if(choice == 2) Player[1] = new class AI(2,1000,n_in_rows,1.96);    //设置AI的参数
+    shuffle(Player,Player+2, e);        //随机决定两个玩家的顺序
 }
 
 
@@ -194,17 +194,20 @@ void Game::Start()
         index = turn.front();
         turn.pop();
         turn.push(index);
-        if(Player[index]->GetStatus() == AI)
-            cout<<"AI's choice:\n";
-        board.Update(Player[index],Player[index]->GetAction(board));
-        if(Player[index]->GetStatus() == AI)
+        if(Player[index]->GetStatus() == AI) cout<<"AI's choice:\n";
+
+        board.Update(Player[index],Player[index]->GetAction(board));    //相应玩家着子，并更新棋盘
+
+        if(Player[index]->GetStatus() == AI)    //用于玩家确认AI信息
         {
             cout<<"Enter y for continue\n";
             char ch;
             cin>>ch;
         }
+
         cout<<board<<endl;
-        result res = Winner();
+
+        result res = Winner();  //用于判断游戏赢家
         if(res.first)
         {
             if(res.second != EMPTY) cout<<"Winner is "
@@ -214,13 +217,27 @@ void Game::Start()
     }
 }
 
+result Game::Winner()
+{
+    result res = GameEnd(); //用于判断游戏是否结束
+    if(res.first) return result(true,res.second);   //游戏结束
+    else if(!board.GetAvailablesNum())  //平局状态
+    {
+        cout<<"Game end. Tie\n";
+        return result(true,EMPTY);
+    }
+    else return result(false,EMPTY);    //游戏未结束
+}
+
 result Game::GameEnd()
 {
     list<int> moved = board.GetMoved();
-    if(moved.size() < (unsigned int)(n_in_rows + 2))
+    if(moved.size() < ((unsigned int)(n_in_rows * 2) - 1))    //当总下子数少于胜利达成的最少子数时，不进行胜利条件判断
         return result(false,EMPTY);
     location temp;
     STATUS who;
+
+    /* 胜利条件判断 */
     for(auto m : moved)
     {
         temp = board.MoveToLocation(m);
@@ -277,18 +294,8 @@ result Game::GameEnd()
     return result(false,EMPTY);
 }
 
-result Game::Winner()
-{
-    result res = GameEnd();
-    if(res.first) return result(true,res.second);
-    else if(!board.GetAvailablesNum())
-    {
-        cout<<"Game end. Tie\n";
-        return result(true,EMPTY);
-    }
-    else return result(false,EMPTY);
-}
 
+/* AI类方法实现 */
 
 AI::AI(int calculation_time_,int max_actions_,int n_in_rows_,double confident_)
     : Human(STATUS::AI),calculation_time(calculation_time_), max_actions(max_actions_), n_in_rows(n_in_rows_)
@@ -299,7 +306,9 @@ AI::AI(int calculation_time_,int max_actions_,int n_in_rows_,double confident_)
 int AI::GetAction(Board &b)
 {
     cout<<"AI Get Action\n";
+    //如果棋盘上就剩最后一个位置，就直接选该位置为着子点
     if(b.GetAvailablesNum() == 1) return b.availables.front();
+    //AI每一次着子时，都要重新构建一颗MCT树,将当前棋局作为初始状态
     plays.clear();
     wins.clear();
     int simulations = 0;
@@ -307,21 +316,23 @@ int AI::GetAction(Board &b)
     start = time(nullptr);
     while(time(nullptr) - start < calculation_time)
     {
-        Board board_copy(b);
-        RunSimulation(board_copy);
-        simulations++;
+        Board board_copy(b);    //拷贝一份当前棋局，作为state0
+        RunSimulation(board_copy);  //基于state0(作为根节点)开始进行模拟，构建MCT树(每次模拟四个步骤：选点，扩张，模拟对弈，统计更新数据)
+        simulations++;  //统计总共仿真模拟的次数
     }
     cout<<"Total simulations = "<<simulations<<endl;
+
     int Move;
-    Move = SelectOneMove(b);
-    cout<<"Maximum depth searched: "<<max_depth<<endl;
+    Move = SelectOneMove(b);    //基于构建的MCT树，选择一个着子点
+
+    cout<<"Maximum depth searched: "<<max_depth<<endl;  //输出该MCT树的最大深度
 
     location loc = b.MoveToLocation(Move);
-
-    cout<<"AI move: "<<loc.first<<","<<loc.second<<endl;
+    cout<<"AI move: "<<loc.first<<","<<loc.second<<endl;    //输出AI的选择
 
     return Move;
 }
+
 
 void AI::RunSimulation(Board &b)
 {
@@ -337,7 +348,7 @@ void AI::RunSimulation(Board &b)
     index = turn.front();
     turn.pop();
     turn.push(index);
-    player = fixed_turn[index];     //在模拟中,AI永远是先手
+    player = fixed_turn[index];     //在模拟中,AI永远是先手,因为要基于AI构建MCT树
 
     STATUS winner = EMPTY;
     list<pair<STATUS,int>> visited_status;  //每个玩家所访问到的状态
@@ -422,7 +433,7 @@ double AI::SumPlays(const list<int> &availables,STATUS who)
     double total = 0;
     for(auto Move : availables)
     {
-        it = plays.find(pair<STATUS,int>(who,Move));
+        it = plays.find(status(who,Move));
         total += it->second;
     }
     return total;
@@ -437,8 +448,8 @@ void AI::MaxUCB(double &value,int &Move,double &log_total,STATUS who,const list<
     for(auto m : availables)
     {
         temp_Move = m;
-        temp_value = (double(wins[pair<STATUS,int>(who,m)]) / double(plays[pair<STATUS,int>(who,m)]))
-                        + sqrt(confident * log_total / double(plays[pair<STATUS,int>(who,m)]));
+        temp_value = (double(wins[status(who,m)]) / double(plays[status(who,m)]))
+                        + sqrt(confident * log_total / double(plays[status(who,m)]));
         if(temp_value > value)
         {
             value = temp_value;
