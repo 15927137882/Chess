@@ -308,6 +308,7 @@ int AI::GetAction(Board &b)
     cout<<"AI Get Action\n";
     //如果棋盘上就剩最后一个位置，就直接选该位置为着子点
     if(b.GetAvailablesNum() == 1) return b.availables.front();
+
     //AI每一次着子时，都要重新构建一颗MCT树,将当前棋局作为初始状态
     plays.clear();
     wins.clear();
@@ -351,34 +352,40 @@ void AI::RunSimulation(Board &b)
     player = fixed_turn[index];     //在模拟中,AI永远是先手,因为要基于AI构建MCT树
 
     STATUS winner = EMPTY;
-    list<pair<STATUS,int>> visited_status;  //每个玩家所访问到的状态
+    list<status> visited_status;  //每个玩家所访问到的状态
     visited_status.clear();
     bool expand = true;
     double log_total;
     double value;
     int Move;
-    for(int t = 1;t<max_actions+1;t++)  //开始模拟对弈，每局最多下max_action个回合
+
+    for(int t = 1;t<max_actions+1;t++)  //开始一局模拟对弈，每局最多下max_action个回合
     {
+        /* 为保证UCT值的存在，首先要保证每个状态都至少被探索过一次 */
         if(AllMovesHaveInfo(b.availables,player->GetStatus()))  //每个玩家,每个点都有统计信息后(笛卡尔积)，开始有目的下
         {
             log_total = log(SumPlays(b.availables,player->GetStatus()));
             MaxUCB(value,Move,log_total,player->GetStatus(),b.availables);
         }
-        else    //随机选择
+        else    //否则随机选择（这里可以使用启发式算法来更有效的选择着子点）
             Move = choice(b.availables);
 
         b.Update(player,Move);
 
+        /* 树生长部分 */
         if(expand &&    //每次模拟最多扩展一次，每次扩展只增加一个着法,一是为了提高算法速度，二是想每次获得更多的数据，提高算法的精度
-           (plays.find(pair<STATUS,int>(player->GetStatus(),Move)) == plays.end()))
+           (plays.find(status(player->GetStatus(),Move)) == plays.end()))
         {
             expand = false;
-            plays[pair<STATUS,int>(player->GetStatus(),Move)] = 0;
-            wins[pair<STATUS,int>(player->GetStatus(),Move)] = 0;
+            plays[status(player->GetStatus(),Move)] = 0;
+            wins[status(player->GetStatus(),Move)] = 0;
+            /* 因为在一局模拟对弈中，对应方向始终是沿树向下搜索的，所以每下一个子，树深度就加一 */
             if(t>max_depth) max_depth = t;  //目前遍历的最大深度
         }
 
-        visited_status.push_back(pair<STATUS,int>(player->GetStatus(),Move));
+        /*用来记录本次模拟的搜索路径 */
+        visited_status.push_back(status(player->GetStatus(),Move));
+
 
         result res = Winner(b);
         winner = res.second;
@@ -391,13 +398,13 @@ void AI::RunSimulation(Board &b)
         player = fixed_turn[index];
     }
 
-    //反向传播:每模拟完一局，统计相关信息
-    for(auto x : visited_status)
+    //反向传播:每模拟完一局，对树中已生成的节点统计相关信息
+    for(auto x : visited_status)    //遍历本次搜索路径
     {
-        if(plays.find(pair<STATUS,int>(x.first,x.second)) == plays.end())
-            continue;
-        plays[pair<STATUS,int>(x.first,x.second)]++;
-        if(x.first == winner) wins[pair<STATUS,int>(x.first,x.second)]++;
+        if(plays.find(status(x.first,x.second)) == plays.end()) //虽然该节点在搜索路径中，
+            continue;                                           //但目前该树却还没有生成该节点
+        plays[status(x.first,x.second)]++;  //所有在搜索路径中且该树已经生成的点，访问次数加一
+        if(x.first == winner) wins[status(x.first,x.second)]++; //如果搜索路径导致胜利，则胜利方的节点胜利次数加一
     }
 }
 
@@ -540,6 +547,7 @@ result AI::Winner(const Board &board)
     else return result(false,EMPTY);    //胜负关系还未确定
 }
 
+/* 基于MCT树的信息，选择最优点，可以选择不同的criteria,这里选择了胜率指标 */
 int AI::SelectOneMove(const Board &b)
 {
     int best_choice = -1;
@@ -548,12 +556,12 @@ int AI::SelectOneMove(const Board &b)
     double member,denominator;
     for(auto Move : b.availables)
     {
-        if(wins.find(pair<STATUS,int>(STATUS::AI,Move)) != wins.end())
-            member = (double)wins[pair<STATUS,int>(STATUS::AI,Move)];
+        if(wins.find(status(STATUS::AI,Move)) != wins.end())
+            member = (double)wins[status(STATUS::AI,Move)];
         else member = 0.0;
 
-        if(plays.find(pair<STATUS,int>(STATUS::AI,Move)) != plays.end())
-            denominator = (double)plays[pair<STATUS,int>(STATUS::AI,Move)];
+        if(plays.find(status(STATUS::AI,Move)) != plays.end())
+            denominator = (double)plays[status(STATUS::AI,Move)];
         else denominator = 1.0;
 
         temp_ratio = member / denominator;

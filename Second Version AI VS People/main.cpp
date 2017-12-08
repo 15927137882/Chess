@@ -20,7 +20,7 @@ int main()
     char ch;
     for(int i = 0;i<5;i++)  //连开五局
     {
-        Game game(5,5,4);   //创建游戏对象,行数，列数，多少子连胜
+        Game game(6,6,4);   //创建游戏对象,行数，列数，多少子连胜
         game.Start();   //启动游戏
         cout<<"start again, y/n?";
         cin>>ch;
